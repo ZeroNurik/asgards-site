@@ -294,9 +294,7 @@ body.duct-mode main{max-width:none}
 .fan-analysis .compact-calculation{align-self:start}
 .fan-chart-wrap .ax-l{fill:#fff;stroke-width:1.5}
 .fan-dig-toggle{margin-top:10px}
-.fan-chart-wrap img{display:block;width:100%;height:auto}
-.fan-chart-wrap svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.fan-chart-wrap text{font:600 17px Arial,sans-serif;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}
+.fan-chart-wrap svg{display:block;width:100%;height:auto;max-width:none;user-select:none}
 .fan-chart-wrap .point-label{fill:#2b8a3e}
 .fan-chart-wrap .req-label{fill:#c92a2a}
 .fan-dig-toggle{display:inline-flex;align-items:center;gap:6px;font-size:.875rem;color:var(--muted);cursor:pointer}
@@ -969,7 +967,7 @@ body.duct-mode main{max-width:none}
 </div>
  <p class="nomogram-explainer">Исходный график каталога, кривые 1–5 — ступени регулятора. Поверх: характеристика сети P = k · L² через заданную точку и рабочая точка на кривой выбранной ступени.</p>
  <div class="nomogram-legend valve-legend" id="fan-legend"></div>
- <div class="fan-chart-viewport" id="fan-chart-viewport" role="region" aria-label="График каталога с масштабированием"><div class="fan-chart-wrap" id="fan-chart-wrap"><img id="fan-chart-img" alt="" decoding="async"><svg id="fan-chart" viewBox="0 0 100 100" aria-hidden="true"></svg></div></div>
+ <div class="fan-chart-viewport" id="fan-chart-viewport" role="region" aria-label="График каталога с масштабированием"><div class="fan-chart-wrap" id="fan-chart-wrap"><svg id="fan-chart" viewBox="0 0 100 100" role="img"></svg></div></div>
  <label class="fan-dig-toggle"><input type="checkbox" id="fan-show-dig"> Показать оцифровку кривых поверх скана</label>
  <p class="source-caption" id="fan-chart-src"></p>
 </div></section>
@@ -5056,43 +5054,63 @@ body.duct-mode main{max-width:none}
   var NS = "http://www.w3.org/2000/svg";
   function el(tag, a, parent, text) { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); if (text != null) e.textContent = text; if (parent) parent.appendChild(e); return e; }
   function chart(m, p, ev) {
-    const g = IMG.geom[m.m], img = $("fan-chart-img"), svg = $("fan-chart");
-    img.src = IMG.img[m.m]; img.width = g.w; img.height = g.h;
-    img.alt = "График каталога АВЗ КЕ/КТ " + m.m + ", стр. " + m.page;
-    svg.setAttribute("viewBox", `0 0 ${g.w} ${g.h}`); svg.innerHTML = "";
+    // canvas = original catalog chart + white margins on the left and bottom for axis tags (as on the SCHIBERG nomogram)
+    const g = IMG.geom[m.m], svg = $("fan-chart"), LM = 170, BM = 64, W = g.w, H = g.h;
+    svg.setAttribute("viewBox", `${-LM} 0 ${W + LM} ${H + BM}`); svg.setAttribute("width", W + LM); svg.setAttribute("height", H + BM);
+    svg.setAttribute("aria-label", "График каталога АВЗ КЕ/КТ " + m.m + ", стр. " + m.page);
+    svg.innerHTML = "";
     const X = (q) => g.L + (q / g.xmax) * (g.R - g.L), Y = (pr) => g.B - (pr / g.ymax) * (g.B - g.T);
+    el("rect", { x: -LM, y: 0, width: W + LM, height: H + BM, fill: "#fff" }, svg);
+    const im = el("image", { x: 0, y: 0, width: W, height: H, preserveAspectRatio: "none" }, svg);
+    im.setAttribute("href", IMG.img[m.m]);
     const cp = el("clipPath", { id: "fan-clip" }, el("defs", {}, svg));
     el("rect", { x: g.L, y: g.T, width: g.R - g.L, height: g.B - g.T }, cp);
     const gg = el("g", { "clip-path": "url(#fan-clip)" }, svg);
-    if ($("fan-show-dig").checked && m.curves) m.curves.forEach((c, i) => {
+    const line = (x1, y1, x2, y2, col, dash, w, parent) => {
+      const a = { x1, y1, x2, y2, fill: "none" };
+      el("line", Object.assign({ stroke: "#fff", "stroke-width": w + 3, opacity: 0.88 }, a), parent || svg);
+      el("line", Object.assign({ stroke: col, "stroke-width": w }, dash ? { "stroke-dasharray": dash } : {}, a), parent || svg);
+    };
+    const tag = (x, y, text, col, w) => {
+      x = Math.max(6 - LM, Math.min(W - w - 6, x)); y = Math.max(5, Math.min(H + BM - 35, y));
+      const gr = el("g", { "pointer-events": "none" }, svg);
+      el("rect", { x, y, width: w, height: 30, rx: 5, fill: "#fff", stroke: col, "stroke-width": 1.5 }, gr);
+      el("text", { x: x + w / 2, y: y + 20.5, "text-anchor": "middle", "font-family": "Arial,sans-serif", "font-size": 17, "font-weight": 600, fill: col, class: "tag" }, gr, text);
+    };
+    const tw = (t) => Math.round(t.length * 9.4 + 22);
+    if ($("fan-show-dig").checked && m.curves) m.curves.forEach((c) => {
       el("polyline", { points: c.map(([q, pr]) => X(q).toFixed(1) + "," + Y(pr).toFixed(1)).join(" "), fill: "none", stroke: "#e8590c", "stroke-width": 1.6, "stroke-dasharray": "5 3" }, gg);
     });
     if (!m.curves) return;
     if (p.L > 0 && p.P > 0) {
       const k = p.P / (p.L * p.L), pts = [];
       for (let i = 0; i <= 80; i++) { const L = (g.xmax * i) / 80; pts.push(X(L).toFixed(1) + "," + Y(k * L * L).toFixed(1)); }
-      el("polyline", { points: pts.join(" "), fill: "none", stroke: "#c92a2a", "stroke-width": 2, "stroke-dasharray": "7 4" }, gg);
-      const inside = p.L <= g.xmax && p.P <= g.ymax;
-      if (inside) {
-        el("circle", { cx: X(p.L), cy: Y(p.P), r: 6, fill: "#fff", stroke: "#c92a2a", "stroke-width": 2.5 }, svg);
-        const lr = X(p.L) > g.R - 190;
-        el("text", { x: X(p.L) + (lr ? -10 : 10), y: Y(p.P) + 20, "text-anchor": lr ? "end" : "start", class: "req-label" }, svg, "задано " + f0.format(p.L) + " · " + f0.format(p.P));
-      }
+      el("polyline", { points: pts.join(" "), fill: "none", stroke: "#fff", "stroke-width": 5, opacity: 0.85 }, gg);
+      el("polyline", { points: pts.join(" "), fill: "none", stroke: "#c92a2a", "stroke-width": 2.4, "stroke-dasharray": "8 5" }, gg);
     }
     if (ev && ev.L != null) {
-      el("line", { x1: X(ev.L), x2: X(ev.L), y1: Y(ev.P), y2: g.B, stroke: "#2b8a3e", "stroke-width": 1.8, "stroke-dasharray": "4 3" }, svg);
-      el("line", { x1: g.L, x2: X(ev.L), y1: Y(ev.P), y2: Y(ev.P), stroke: "#2b8a3e", "stroke-width": 1.8, "stroke-dasharray": "4 3" }, svg);
-      el("circle", { cx: X(ev.L), cy: Y(ev.P), r: 7, fill: "#2b8a3e", stroke: "#fff", "stroke-width": 2.5 }, svg);
-      // value call-outs on both axes, as on the grille nomograms
-      const box = (x, y, txt, col, anchor) => {
-        const t = el("text", { x, y, "text-anchor": anchor, "dominant-baseline": "middle", class: "ax-t", fill: col, style: "stroke:none" }, svg, txt);
-        const w = txt.length * 9.6 + 14, x0 = anchor === "end" ? x - w + 7 : anchor === "middle" ? x - w / 2 : x - 7;
-        svg.insertBefore(el("rect", { x: x0, y: y - 13, width: w, height: 26, rx: 4, class: "ax-l", stroke: col }), t);
-      };
-      box(g.L + 8, Y(ev.P), "P = " + f0.format(ev.P) + " Па", "#2b8a3e", "start");
-      box(X(ev.L), g.B + 22, "L = " + f0.format(ev.L) + " м³/ч", "#2b8a3e", "middle");
-      const right = X(ev.L) < g.R - 230;
-      const t = el("text", { x: X(ev.L) + (right ? 11 : -11), y: Y(ev.P) - 11, "text-anchor": right ? "start" : "end", class: "point-label" }, svg, "кривая " + ev.step + ": " + f0.format(ev.L) + " м³/ч · " + f0.format(ev.P) + " Па");
+      const px = X(ev.L), py = Y(ev.P), cL = "#1261c3", cP = "#008374";
+      // pressure: tag in the left margin, dashed lead to the axis, solid to the point
+      line(-14, py, g.L, py, cP, "2 4", 1.6);
+      line(g.L, py, px, py, cP, "", 2.4);
+      el("circle", { cx: g.L, cy: py, r: 4, fill: cP }, svg);
+      const tp = "P = " + f0.format(ev.P) + " Па";
+      tag(-14 - tw(tp), py - 15, tp, cP, tw(tp));
+      // flow: tag below the chart, dashed lead from the axis, solid from the point down to the axis
+      line(px, py, px, g.B, cL, "", 2.4);
+      line(px, g.B, px, H + 14, cL, "2 4", 1.6);
+      el("circle", { cx: px, cy: g.B, r: 4, fill: cL }, svg);
+      const tl = "L = " + f0.format(ev.L) + " м³/ч";
+      tag(px - tw(tl) / 2, H + 14, tl, cL, tw(tl));
+    }
+    if (p.L > 0 && p.P > 0 && p.L <= g.xmax && p.P <= g.ymax) {
+      el("circle", { cx: X(p.L), cy: Y(p.P), r: 6, fill: "#fff", stroke: "#c92a2a", "stroke-width": 2.5 }, svg);
+    }
+    if (ev && ev.L != null) {
+      const px = X(ev.L), py = Y(ev.P), right = px < g.R - 230;
+      el("circle", { cx: px, cy: py, r: 7.5, fill: "#2b8a3e", stroke: "#fff", "stroke-width": 2.5 }, svg);
+      const t = "ступень " + ev.step, w = tw(t);
+      tag(px + (right ? 16 : -16 - w), py - 46, t, "#2b8a3e", w);
     }
   }
 
@@ -5130,7 +5148,7 @@ body.duct-mode main{max-width:none}
     $("fan-conditions").textContent = cond.join(" ");
     $("fan-note").hidden = !m.note; $("fan-note").textContent = m.note ? "Замечание к каталогу: " + m.note : "";
     chart(m, p, ev.L != null ? ev : null);
-    $("fan-legend").innerHTML = `<span><i style="background:#c92a2a"></i>сеть P = k · L² и заданная точка</span><span><i style="background:#2b8a3e"></i>рабочая точка</span>` + ($("fan-show-dig").checked ? `<span><i style="background:#e8590c"></i>оцифровка кривых</span>` : "");
+    $("fan-legend").innerHTML = `<span><i style="background:#c92a2a"></i>сеть P = k · L², кружок — заданная точка</span><span><i style="background:#2b8a3e"></i>рабочая точка</span><span><i style="background:#1261c3"></i>расход L</span><span><i style="background:#008374"></i>давление P</span>` + ($("fan-show-dig").checked ? `<span><i style="background:#e8590c"></i>оцифровка кривых</span>` : "");
     $("fan-chart-title").textContent = "Каталог АВЗ КЕ/КТ " + m.m + " · стр. " + m.page;
     $("fan-chart-src").textContent = m.curves ? `График — скан каталога АВЗ, стр. ${m.page}. Линия сети и точки нанесены по калибровке осей графика; рабочая точка рассчитана по оцифрованным кривым.` : `График — скан каталога АВЗ, стр. ${m.page}. Он совпадает с графиком 90-50/45.4D, поэтому рабочая точка не строится.`;
     renderNoise(m);
