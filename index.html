@@ -287,8 +287,13 @@ body.duct-mode main{max-width:none}
 .fan-steps-ref{margin-top:18px}
 .fan-steps-ref .hint{margin:0 0 6px}
 .fan-steps-table td,.fan-steps-table th{padding:5px 10px}
-.fan-chart-viewport{width:100%;overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:#fff}
-.fan-chart-wrap{position:relative;width:100%;max-width:820px;min-width:520px;margin:0 auto}
+.fan-chart-viewport{width:100%;overflow:auto;border:1px solid var(--line);border-radius:6px;background:#fff;max-height:75vh;overscroll-behavior:contain;margin-top:10px}
+.fan-chart-wrap{position:relative;width:80%;max-width:none;margin:0 auto}
+.fan-analysis{grid-template-columns:320px minmax(0,1fr)}
+.fan-analysis .valve-metrics{grid-template-columns:1fr 1fr}
+.fan-analysis .compact-calculation{align-self:start}
+.fan-chart-wrap .ax-l{fill:#fff;stroke-width:1.5}
+.fan-dig-toggle{margin-top:10px}
 .fan-chart-wrap img{display:block;width:100%;height:auto}
 .fan-chart-wrap svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .fan-chart-wrap text{font:600 17px Arial,sans-serif;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}
@@ -308,8 +313,8 @@ body.duct-mode main{max-width:none}
 .fan-remarks li{margin:0 0 8px;color:#394d65}
 #fan-panel .reference .method p{max-width:900px}
 .badge.fan-out{background:#fff3ef;color:#a03424}
-@media(max-width:1050px){.fan-workspace{grid-template-columns:290px minmax(0,1fr)}}
-@media(max-width:780px){.fan-workspace{grid-template-columns:1fr}}
+@media(max-width:1050px){.fan-workspace,.fan-analysis{grid-template-columns:290px minmax(0,1fr)}}
+@media(max-width:780px){.fan-workspace,.fan-analysis{grid-template-columns:1fr}}
 @media(pointer:coarse){.fan-list td{padding:11px 10px}}
 </style>
 </head>
@@ -935,7 +940,7 @@ body.duct-mode main{max-width:none}
 </div></div></details></section>
 </section>
 <section id="fan-panel" aria-labelledby="fan-input-title" hidden>
-<div class="workspace fan-workspace">
+<div class="workspace selection-workspace fan-workspace">
 <section class="inputs" aria-labelledby="fan-input-title"><h2 id="fan-input-title">Рабочая точка сети</h2>
  <form id="fan-form" novalidate>
   <label class="field">Расход L, <span class="unit">м³/ч</span><input id="fan-flow" name="flow" type="number" value="2000" min="1" max="100000" step="any" inputmode="decimal"></label>
@@ -955,8 +960,22 @@ body.duct-mode main{max-width:none}
   <div class="table-scroll"><table class="valve-ref fan-steps-table" id="fan-steps-table"></table></div>
  </div>
 </section>
+<section class="nomogram-card" aria-labelledby="fan-chart-title"><div class="nomogram-figure">
+ <div class="nomogram-toolbar">
+<h3 id="fan-chart-title">Каталог АВЗ КЕ/КТ</h3>
+<div class="nomogram-zoom" role="group" aria-label="Масштаб графика каталога">
+<button type="button" id="fan-zoom-minus" aria-label="Уменьшить график">−</button><output id="fan-zoom-scale" aria-live="polite">80%</output><button type="button" id="fan-zoom-plus" aria-label="Увеличить график">+</button><button type="button" id="fan-zoom-fit">По ширине</button>
+</div>
+</div>
+ <p class="nomogram-explainer">Исходный график каталога, кривые 1–5 — ступени регулятора. Поверх: характеристика сети P = k · L² через заданную точку и рабочая точка на кривой выбранной ступени.</p>
+ <div class="nomogram-legend valve-legend" id="fan-legend"></div>
+ <div class="fan-chart-viewport" id="fan-chart-viewport" role="region" aria-label="График каталога с масштабированием"><div class="fan-chart-wrap" id="fan-chart-wrap"><img id="fan-chart-img" alt="" decoding="async"><svg id="fan-chart" viewBox="0 0 100 100" aria-hidden="true"></svg></div></div>
+ <label class="fan-dig-toggle"><input type="checkbox" id="fan-show-dig"> Показать оцифровку кривых поверх скана</label>
+ <p class="source-caption" id="fan-chart-src"></p>
+</div></section>
+</div>
 
-<div class="valve-main">
+<div class="workspace analysis-workspace fan-analysis">
 <section class="compact-calculation" aria-labelledby="fan-calc-title">
  <div class="result-heading"><h2 id="fan-calc-title">Выбранный вентилятор</h2><span class="badge" id="fan-badge"></span></div>
  <p class="configuration" id="fan-config"></p>
@@ -964,15 +983,7 @@ body.duct-mode main{max-width:none}
  <p class="hint fan-note" id="fan-note" hidden></p>
  <p class="hint" id="fan-conditions"></p>
 </section>
-
-<section class="nomogram-card" aria-labelledby="fan-chart-title">
- <div class="nomogram-toolbar"><h3 id="fan-chart-title">Характеристика по каталогу</h3><label class="fan-dig-toggle"><input type="checkbox" id="fan-show-dig"> Показать оцифровку</label></div>
- <p class="nomogram-explainer">Исходный график каталога. Кривые 1–5 — ступени регулятора скорости. Красный пунктир — характеристика сети P = k · L² через заданную точку. Зелёная точка — рабочая точка на кривой выбранной ступени.</p>
- <div class="fan-chart-viewport"><div class="fan-chart-wrap"><img id="fan-chart-img" alt="" decoding="async"><svg id="fan-chart" viewBox="0 0 100 100" aria-hidden="true"></svg></div></div>
- <div class="nomogram-legend valve-legend" id="fan-legend"></div>
- <p class="source-caption" id="fan-chart-src"></p>
-</section>
-
+<div class="valve-main">
 <section class="results" aria-labelledby="fan-list-title">
  <div class="result-heading"><h2 id="fan-list-title">Подходящие вентиляторы</h2><span class="badge" id="fan-count"></span></div>
  <p class="hint valve-list-hint">Вентиляторы, у которых на 5-й ступени расход по сети не меньше заданного. Порядок — по потребляемой мощности. Нажмите строку, чтобы выбрать вентилятор.</p>
@@ -5072,6 +5083,14 @@ body.duct-mode main{max-width:none}
       el("line", { x1: X(ev.L), x2: X(ev.L), y1: Y(ev.P), y2: g.B, stroke: "#2b8a3e", "stroke-width": 1.8, "stroke-dasharray": "4 3" }, svg);
       el("line", { x1: g.L, x2: X(ev.L), y1: Y(ev.P), y2: Y(ev.P), stroke: "#2b8a3e", "stroke-width": 1.8, "stroke-dasharray": "4 3" }, svg);
       el("circle", { cx: X(ev.L), cy: Y(ev.P), r: 7, fill: "#2b8a3e", stroke: "#fff", "stroke-width": 2.5 }, svg);
+      // value call-outs on both axes, as on the grille nomograms
+      const box = (x, y, txt, col, anchor) => {
+        const t = el("text", { x, y, "text-anchor": anchor, "dominant-baseline": "middle", class: "ax-t", fill: col, style: "stroke:none" }, svg, txt);
+        const w = txt.length * 9.6 + 14, x0 = anchor === "end" ? x - w + 7 : anchor === "middle" ? x - w / 2 : x - 7;
+        svg.insertBefore(el("rect", { x: x0, y: y - 13, width: w, height: 26, rx: 4, class: "ax-l", stroke: col }), t);
+      };
+      box(g.L + 8, Y(ev.P), "P = " + f0.format(ev.P) + " Па", "#2b8a3e", "start");
+      box(X(ev.L), g.B + 22, "L = " + f0.format(ev.L) + " м³/ч", "#2b8a3e", "middle");
       const right = X(ev.L) < g.R - 230;
       const t = el("text", { x: X(ev.L) + (right ? 11 : -11), y: Y(ev.P) - 11, "text-anchor": right ? "start" : "end", class: "point-label" }, svg, "кривая " + ev.step + ": " + f0.format(ev.L) + " м³/ч · " + f0.format(ev.P) + " Па");
     }
@@ -5112,6 +5131,7 @@ body.duct-mode main{max-width:none}
     $("fan-note").hidden = !m.note; $("fan-note").textContent = m.note ? "Замечание к каталогу: " + m.note : "";
     chart(m, p, ev.L != null ? ev : null);
     $("fan-legend").innerHTML = `<span><i style="background:#c92a2a"></i>сеть P = k · L² и заданная точка</span><span><i style="background:#2b8a3e"></i>рабочая точка</span>` + ($("fan-show-dig").checked ? `<span><i style="background:#e8590c"></i>оцифровка кривых</span>` : "");
+    $("fan-chart-title").textContent = "Каталог АВЗ КЕ/КТ " + m.m + " · стр. " + m.page;
     $("fan-chart-src").textContent = m.curves ? `График — скан каталога АВЗ, стр. ${m.page}. Линия сети и точки нанесены по калибровке осей графика; рабочая точка рассчитана по оцифрованным кривым.` : `График — скан каталога АВЗ, стр. ${m.page}. Он совпадает с графиком 90-50/45.4D, поэтому рабочая точка не строится.`;
     renderNoise(m);
     renderSpec(p);
@@ -5148,6 +5168,22 @@ body.duct-mode main{max-width:none}
   function pick(name) { const m = MODELS.find((x) => x.m === name); if (m) { sel = m; userPicked = true; render(); } }
   $("fan-list").addEventListener("click", (e) => { const r = e.target.closest("tr[data-m]"); if (r) pick(r.dataset.m); });
   $("fan-spec").addEventListener("click", (e) => { const r = e.target.closest("tr[data-m]"); if (r) { pick(r.dataset.m); $("fan-calc-title").scrollIntoView({ behavior: "smooth", block: "start" }); } });
+  // zoom, as on the grille nomograms
+  var zv = $("fan-chart-viewport"), zw = $("fan-chart-wrap"), zoom = matchMedia("(max-width:680px)").matches ? 100 : 80;
+  function setZoom(v) {
+    const old = zw.getBoundingClientRect();
+    const cx = old.width ? (zv.scrollLeft + zv.clientWidth / 2) / old.width : 0.5, cy = old.height ? (zv.scrollTop + zv.clientHeight / 2) / old.height : 0.5;
+    zoom = Math.max(50, Math.min(300, v));
+    zw.style.width = zoom + "%";
+    $("fan-zoom-scale").textContent = zoom + "%";
+    $("fan-zoom-minus").disabled = zoom === 50; $("fan-zoom-plus").disabled = zoom === 300;
+    if (zoom <= 100) { zv.scrollLeft = 0; zv.scrollTop = 0; }
+    else { const r = zw.getBoundingClientRect(); zv.scrollLeft = cx * r.width - zv.clientWidth / 2; zv.scrollTop = cy * r.height - zv.clientHeight / 2; }
+  }
+  $("fan-zoom-minus").addEventListener("click", () => setZoom(zoom - 10));
+  $("fan-zoom-plus").addEventListener("click", () => setZoom(zoom + 10));
+  $("fan-zoom-fit").addEventListener("click", () => setZoom(100));
+  setZoom(zoom);
   window.__fanRender = render;
   render();
 })();
